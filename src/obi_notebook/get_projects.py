@@ -8,16 +8,20 @@ from IPython.display import display
 selected_project = None  # Global variable
 
 
-def project_handler(selected, project_context):
-    pc = project_context["pc"]
-    pc.project_id = selected["id"]
-    pc.virtual_lab_id = selected["virtual_lab_id"]
+def get_projects(token, env="production"):
+    """Returns available project for the end user."""
 
+    def project_handler(selected, project_context):
+        project_context.project_id = selected["id"]
+        project_context.virtual_lab_id = selected["virtual_lab_id"]
 
-def get_projects(token, project_context):
-    url = "https://www.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects"
+    subdomain = "www" if env == "production" else "staging"
+
+    url = (
+        f"https://{subdomain}.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects"
+    )
     headers = {"authorization": f"Bearer {token}"}
-    ret = requests.get(url, headers=headers)
+    ret = requests.get(url, headers=headers, timeout=30)
     # Basic error handling
     if not ret.ok:
         print(f"Error fetching projects: {ret.status_code}")
@@ -31,10 +35,10 @@ def get_projects(token, project_context):
 
     options = [(project["name"], project) for project in project_list]
 
-    project_context["pc"] = ProjectContext(
+    project_context = ProjectContext(
         project_id=project_list[0]["id"],
         virtual_lab_id=project_list[0]["virtual_lab_id"],
-        environment="production",
+        environment=env,
     )
     dropdown = widgets.Dropdown(
         options=options,

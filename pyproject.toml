@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "obi_notebook"
 dependencies = [
+    "requests>=2.32.4",
 ]
 authors = [
     {name = "Open Brain Institute", email = "jean-denis.courcol@epfl.ch"}

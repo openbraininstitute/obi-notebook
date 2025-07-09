@@ -7,7 +7,7 @@ from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import clear_output, display
 
 
-def get_entities(entity_type, token, result, env="production"):
+def get_entities(entity_type, token, result, env="production", project_context=None):
     """Select entities of type entity_type and add them to result.
 
     Note: The 'result' parameter is a mutable object (e.g., set) that is modified in-place
@@ -37,7 +37,9 @@ def get_entities(entity_type, token, result, env="production"):
                 params[k] = v
 
         headers = {"authorization": f"Bearer {token}"}
-
+        if project_context:
+            headers['virtual-lab-id'] = project_context.virtual_lab_id 
+            headers['project-id'] = project_context.project_id 
         subdomain = "www" if env == "production" else "staging"
         response = requests.get(
             f"https://{subdomain}.openbraininstitute.org/api/entitycore/{entity_type}",

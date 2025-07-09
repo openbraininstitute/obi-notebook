@@ -1,16 +1,33 @@
 # obi-notebook
 
-convenience functions for OBI notebooks
-
+Convenience functions for OBI notebooks.
 
 ## Installation
 
-Replace this text by proper installation instructions.
+```
+pip install obi-notebook
+```
+
+## examples
 
 
-## Examples
+select a project_context
+```
+from obi_notebook import get_projects
+project_context = get_projects.get_projects(token)
+```
 
-Provide here some examples on how this software can be used.
+select circuit ids
+```
+from obi_notebook import get_entities
+circuit_ids = set()
+circuit_ids = get_entities.get_entities("circuit", token, circuit_ids)
+```
 
+## demo
+
+Multi-selection is possible.
+
+![demo](./demo.gif)
 
 Copyright (c) 2025 Open Brain Institute

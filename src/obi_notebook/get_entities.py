@@ -3,14 +3,16 @@
 import ipywidgets as widgets
 import pandas as pd
 import requests
+from entitysdk import Client, models
 from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import clear_output, display
 
 
-def get_entities(entity_type, token, result, env="production", project_context=None):
+def get_entities(entity_type, token, result, env="production", project_context=None,
+ return_entities=False):
     """Select entities of type entity_type and add them to result.
 
-    Note: The 'result' parameter is a mutable object (e.g., set) that is modified in-place
+    Note: The 'result' parameter is a mutable object (a list) that is modified in-place
       and also returned.
     """
     # Widgets
@@ -27,6 +29,8 @@ def get_entities(entity_type, token, result, env="production", project_context=N
     # Output area
     output = widgets.Output()
 
+    subdomain = "www" if env == "production" else "staging"
+    entity_core_url = f"https://{subdomain}.openbraininstitute.org/api/entitycore"
     # Fetch and display function
     def fetch_data(filter_values):
         params = {"page_size": 10}
@@ -40,19 +44,16 @@ def get_entities(entity_type, token, result, env="production", project_context=N
         if project_context:
             headers['virtual-lab-id'] = project_context.virtual_lab_id 
             headers['project-id'] = project_context.project_id 
-        subdomain = "www" if env == "production" else "staging"
         response = requests.get(
-            f"https://{subdomain}.openbraininstitute.org/api/entitycore/{entity_type}",
+            f"{entity_core_url}/{entity_type}",
             headers=headers,
             params=params,
             timeout=30,
         )
-
+        
+        
         try:
             data = response.json()
-            if "data" not in data or not isinstance(data["data"], list):
-                print("Unexpected API response structure:", data)
-                return pd.DataFrame()
             df = pd.json_normalize(data["data"])
             return df
         except Exception as e:
@@ -97,9 +98,22 @@ def get_entities(entity_type, token, result, env="production", project_context=N
             def on_selection_change(event, grid=grid):
                 with output:
                     result.clear()
+                    l_ids= set()
                     for selection in grid.selections:
                         for row in range(selection["r1"], selection["r2"] + 1):
-                            result.add(df.iloc[row]["id"])
+                            l_ids.add(df.iloc[row]["id"])
+                    
+                    if return_entities:
+                        client = Client(api_url=entity_core_url,
+                         project_context=project_context,
+                         token_manager=token)
+
+                        model_class = getattr(models, entity_type.capitalize())
+                        retrieved_entities = client.search_entity(
+                            entity_type=model_class, query={"id__in": list(l_ids)})
+                        result.extend(retrieved_entities)
+                    else:
+                        result.extend(l_ids)
 
             grid.observe(on_selection_change, names="selections")
 

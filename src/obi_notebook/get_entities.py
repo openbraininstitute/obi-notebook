@@ -1,6 +1,7 @@
 """A table widget to select entities."""
 
 import ipywidgets as widgets
+import numpy as np
 import pandas as pd
 import requests
 from entitysdk import Client, models
@@ -35,6 +36,15 @@ def get_entities(
 
     filters_dict["name"] = widgets.Text(description="Name:")
 
+    filters_dict["page"] = widgets.Dropdown(
+        options=[1],
+        value=1,
+        description='Results page:',
+        disabled=False,
+        style={"description_width": "auto"},
+        layout=widgets.Layout(width="max-content")
+    )
+
     # Output area
     output = widgets.Output()
 
@@ -64,7 +74,8 @@ def get_entities(
         try:
             data = response.json()
             df = pd.json_normalize(data["data"])
-            return df
+            pagination = data["pagination"]
+            return df, pagination
         except Exception as e:
             print("Error fetching or parsing data:", e)
             return pd.DataFrame()
@@ -78,7 +89,10 @@ def get_entities(
         with output:
             clear_output()
             filter_values = {k: v.value for k, v in filters_dict.items()}
-            df = fetch_data(filter_values)
+            df, pagination = fetch_data(filter_values)
+
+            num_pages = np.maximum(1, np.ceil(pagination["total_items"] / pagination["page_size"]).astype(int))
+            filters_dict["page"].options = range(1, num_pages + 1)
 
             proper_columns = [
                 "id",
@@ -92,6 +106,7 @@ def get_entities(
                 return
 
             df = df[proper_columns].reset_index(drop=True)
+            df.index = df.index + (pagination["page"] - 1) * pagination["page_size"]
             column_widths = _estimate_column_widths(df)
             grid = DataGrid(
                 df,

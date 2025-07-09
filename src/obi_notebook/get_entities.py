@@ -1,4 +1,5 @@
 """A table widget to select entities."""
+
 import ipywidgets as widgets
 import pandas as pd
 import requests
@@ -6,7 +7,7 @@ from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import clear_output, display
 
 
-def get_entities(entity_type, token, result, env='production'):
+def get_entities(entity_type, token, result, env="production"):
     """Select entities of type entity_type and add them to result.
 
     Note: The 'result' parameter is a mutable object (e.g., set) that is modified in-place
@@ -14,14 +15,14 @@ def get_entities(entity_type, token, result, env='production'):
     """
     # Widgets
     filters_dict = {}
-    if entity_type == 'circuit':
-        scale_filter= widgets.Dropdown(
+    if entity_type == "circuit":
+        scale_filter = widgets.Dropdown(
             options=["single", "pair", "small", "microcircuit", "region", "system", "whole"],
             description="Scale:",
         )
-        filters_dict['scale'] = scale_filter 
+        filters_dict["scale"] = scale_filter
 
-    filters_dict['name'] = widgets.Text(description="Name:")
+    filters_dict["name"] = widgets.Text(description="Name:")
 
     # Output area
     output = widgets.Output()
@@ -30,7 +31,7 @@ def get_entities(entity_type, token, result, env='production'):
     def fetch_data(filter_values):
         params = {"page_size": 10}
         for k, v in filter_values.items():
-            if k == 'name':
+            if k == "name":
                 params["name__ilike"] = v
             else:
                 params[k] = v
@@ -74,8 +75,8 @@ def get_entities(entity_type, token, result, env='production'):
                 "brain_region.name",
                 "subject.species.name",
             ]
-            if len(df)==0:
-                print('no results')
+            if len(df) == 0:
+                print("no results")
                 return
 
             df = df[proper_columns].reset_index(drop=True)
@@ -109,4 +110,4 @@ def get_entities(entity_type, token, result, env='production'):
     # Initial load
     on_change()
 
-    return result 
+    return result

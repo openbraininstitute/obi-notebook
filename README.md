@@ -20,7 +20,7 @@ project_context = get_projects.get_projects(token)
 select circuit ids
 ```
 from obi_notebook import get_entities
-circuit_ids = set()
+circuit_ids = []
 circuit_ids = get_entities.get_entities("circuit", token, circuit_ids)
 ```
 

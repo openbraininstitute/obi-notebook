@@ -18,7 +18,7 @@ def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
 
 
 def get_entities(
-    entity_type, token, result, env="production", project_context=None, return_entities=False, page_size=10, show_pages=True,
+    entity_type, token, result, env="production", project_context=None, return_entities=False, page_size=10, show_pages=True, add_columns=[],
 ):
     """Select entities of type entity_type and add them to result.
 
@@ -86,7 +86,7 @@ def get_entities(
             return df, pagination
         except Exception as e:
             print("Error fetching or parsing data:", e)
-            return pd.DataFrame()
+            return pd.DataFrame(), None
 
     grid = None
 
@@ -105,7 +105,7 @@ def get_entities(
                 "description",
                 "brain_region.name",
                 "subject.species.name",
-            ]
+            ] + add_columns
             if len(df) == 0:
                 if show_pages and filters_dict["page"].value != 1:
                     filters_dict["page"].options = [1]  # Will update .value as well
@@ -113,6 +113,7 @@ def get_entities(
                     print("no results")
                 return
 
+            proper_columns = [_col for _col in proper_columns if _col in df.columns]
             df = df[proper_columns].reset_index(drop=True)
 
             if show_pages:

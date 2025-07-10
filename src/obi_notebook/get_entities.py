@@ -18,7 +18,7 @@ def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
 
 
 def get_entities(
-    entity_type, token, result, env="production", project_context=None, return_entities=False, page_size=10, show_pages=True, add_columns=[], default_scale=None
+    entity_type, token, result, env="production", project_context=None, return_entities=False, multi_select=True, page_size=10, show_pages=True, add_columns=[], default_scale=None
 ):
     """Select entities of type entity_type and add them to result.
 
@@ -132,7 +132,6 @@ def get_entities(
                 # auto_fit_columns=True,
                 auto_fit_params={"area": "all"},
                 selection_mode="row",  # Enable row selection
-                selection_behavior="multi",
                 column_widths=column_widths,
             )
             grid.default_renderer = TextRenderer()
@@ -140,6 +139,14 @@ def get_entities(
 
             def on_selection_change(event, grid=grid):
                 with output:
+                    if not multi_select and len(grid.selections) > 0:
+                        if (event["new"][-1]["r1"] != event["new"][-1]["r2"]) or len(grid.selections) > 1:  # Multiple rows selected
+                            if event["new"][-1]["r1"] == event["old"][-1]["r1"]:  # r1 unchanged
+                                new_r = event["new"][-1]["r1"]
+                            else:  # r2 unchanged
+                                new_r = event["new"][-1]["r2"]
+                            # Enforce selection of a single row (the last single one that was selected)
+                            grid.selections = [{"r1": new_r, "r2": new_r, "c1": grid.selections[-1]["c1"], "c2": grid.selections[-1]["c2"]}]
                     result.clear()
                     l_ids = set()
                     for selection in grid.selections:

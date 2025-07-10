@@ -18,7 +18,7 @@ def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
 
 
 def get_entities(
-    entity_type, token, result, env="production", project_context=None, return_entities=False, page_size=10, show_pages=True, add_columns=[],
+    entity_type, token, result, env="production", project_context=None, return_entities=False, page_size=10, show_pages=True, add_columns=[], default_scale=None
 ):
     """Select entities of type entity_type and add them to result.
 
@@ -32,8 +32,12 @@ def get_entities(
     # Widgets
     filters_dict = {}
     if entity_type == "circuit":
+        scale_options = [_scale.value for _scale in types.CircuitScale]
+        if default_scale is None or default_scale not in scale_options:
+            default_scale = scale_options[0]
         scale_filter = widgets.Dropdown(
-            options=[_scale.value for _scale in types.CircuitScale],
+            options=scale_options,
+            value=default_scale,
             description="Scale:",
         )
         filters_dict["scale"] = scale_filter

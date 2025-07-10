@@ -18,13 +18,16 @@ def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
 
 
 def get_entities(
-    entity_type, token, result, env="production", project_context=None, return_entities=False
+    entity_type, token, result, env="production", project_context=None, return_entities=False, page_size=10, show_pages=True,
 ):
     """Select entities of type entity_type and add them to result.
 
     Note: The 'result' parameter is a mutable object (a list) that is modified in-place
       and also returned.
     """
+    if page_size is not None:
+        assert page_size > 0, "ERROR: Page size must be larger than 0!"
+
     # Widgets
     filters_dict = {}
     if entity_type == "circuit":
@@ -36,14 +39,15 @@ def get_entities(
 
     filters_dict["name"] = widgets.Text(description="Name:")
 
-    filters_dict["page"] = widgets.Dropdown(
-        options=[1],
-        value=1,
-        description='Results page:',
-        disabled=False,
-        style={"description_width": "auto"},
-        layout=widgets.Layout(width="max-content")
-    )
+    if show_pages:
+        filters_dict["page"] = widgets.Dropdown(
+            options=[1],
+            value=1,
+            description='Results page:',
+            disabled=False,
+            style={"description_width": "auto"},
+            layout=widgets.Layout(width="max-content")
+        )
 
     # Output area
     output = widgets.Output()
@@ -53,7 +57,10 @@ def get_entities(
 
     # Fetch and display function
     def fetch_data(filter_values):
-        params = {"page_size": 10}
+        if page_size is None:
+            params = {}
+        else:
+            params = {"page_size": page_size}
         for k, v in filter_values.items():
             if k == "name":
                 params["name__ilike"] = v
@@ -91,9 +98,6 @@ def get_entities(
             filter_values = {k: v.value for k, v in filters_dict.items()}
             df, pagination = fetch_data(filter_values)
 
-            num_pages = np.maximum(1, np.ceil(pagination["total_items"] / pagination["page_size"]).astype(int))
-            filters_dict["page"].options = range(1, num_pages + 1)
-
             proper_columns = [
                 "id",
                 "name",
@@ -102,11 +106,19 @@ def get_entities(
                 "subject.species.name",
             ]
             if len(df) == 0:
-                print("no results")
+                if show_pages and filters_dict["page"].value != 1:
+                    filters_dict["page"].options = [1]  # Will update .value as well
+                else:
+                    print("no results")
                 return
 
             df = df[proper_columns].reset_index(drop=True)
-            df.index = df.index + (pagination["page"] - 1) * pagination["page_size"]
+
+            if show_pages:
+                num_pages = np.maximum(1, np.ceil(pagination["total_items"] / pagination["page_size"]).astype(int))
+                filters_dict["page"].options = range(1, num_pages + 1)
+                df.index = df.index + (pagination["page"] - 1) * pagination["page_size"]
+
             column_widths = _estimate_column_widths(df)
             grid = DataGrid(
                 df,

@@ -18,7 +18,18 @@ def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
 
 
 def get_entities(
-    entity_type, token, result, env="production", project_context=None, return_entities=False, multi_select=True, page_size=10, show_pages=True, add_columns=[], default_scale=None, exclude_scales=[]
+    entity_type,
+    token,
+    result,
+    env="production",
+    project_context=None,
+    return_entities=False,
+    multi_select=True,
+    page_size=10,
+    show_pages=True,
+    add_columns=[],
+    default_scale=None,
+    exclude_scales=[],
 ):
     """Select entities of type entity_type and add them to result.
 
@@ -32,7 +43,9 @@ def get_entities(
     # Widgets
     filters_dict = {}
     if entity_type == "circuit":
-        scale_options = [_scale.value for _scale in types.CircuitScale if _scale.value not in exclude_scales]
+        scale_options = [
+            _scale.value for _scale in types.CircuitScale if _scale.value not in exclude_scales
+        ]
         if default_scale is None or default_scale not in scale_options:
             default_scale = scale_options[0]
         scale_filter = widgets.Dropdown(
@@ -48,10 +61,10 @@ def get_entities(
         filters_dict["page"] = widgets.Dropdown(
             options=[1],
             value=1,
-            description='Results page:',
+            description="Results page:",
             disabled=False,
             style={"description_width": "auto"},
-            layout=widgets.Layout(width="max-content")
+            layout=widgets.Layout(width="max-content"),
         )
 
     # Output area
@@ -121,7 +134,9 @@ def get_entities(
             df = df[proper_columns].reset_index(drop=True)
 
             if show_pages:
-                num_pages = np.maximum(1, np.ceil(pagination["total_items"] / pagination["page_size"]).astype(int))
+                num_pages = np.maximum(
+                    1, np.ceil(pagination["total_items"] / pagination["page_size"]).astype(int)
+                )
                 filters_dict["page"].options = range(1, num_pages + 1)
                 df.index = df.index + (pagination["page"] - 1) * pagination["page_size"]
 
@@ -140,13 +155,22 @@ def get_entities(
             def on_selection_change(event, grid=grid):
                 with output:
                     if not multi_select and len(grid.selections) > 0:
-                        if (event["new"][-1]["r1"] != event["new"][-1]["r2"]) or len(grid.selections) > 1:  # Multiple rows selected
+                        if (event["new"][-1]["r1"] != event["new"][-1]["r2"]) or len(
+                            grid.selections
+                        ) > 1:  # Multiple rows selected
                             if event["new"][-1]["r1"] == event["old"][-1]["r1"]:  # r1 unchanged
                                 new_r = event["new"][-1]["r1"]
                             else:  # r2 unchanged
                                 new_r = event["new"][-1]["r2"]
                             # Enforce selection of a single row (the last single one that was selected)
-                            grid.selections = [{"r1": new_r, "r2": new_r, "c1": grid.selections[-1]["c1"], "c2": grid.selections[-1]["c2"]}]
+                            grid.selections = [
+                                {
+                                    "r1": new_r,
+                                    "r2": new_r,
+                                    "c1": grid.selections[-1]["c1"],
+                                    "c2": grid.selections[-1]["c2"],
+                                }
+                            ]
                     result.clear()
                     l_ids = set()
                     for selection in grid.selections:

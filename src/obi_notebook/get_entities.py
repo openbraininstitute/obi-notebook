@@ -27,9 +27,9 @@ def get_entities(
     multi_select=True,
     page_size=10,
     show_pages=True,
-    add_columns=[],
+    add_columns=None,
     default_scale=None,
-    exclude_scales=[],
+    exclude_scales=None,
 ):
     """Select entities of type entity_type and add them to result.
 
@@ -37,9 +37,15 @@ def get_entities(
       and also returned.
     """
     if page_size is not None:
-        assert page_size > 0, "ERROR: Page size must be larger than 0!"
+        if page_size <= 0:
+            raise ValueError("ERROR: Page size must be larger than 0!")
         # TODO: Could add an upper limit as well here
 
+    if add_columns is None:
+        add_columns = []
+    if exclude_scales is None:
+        exclude_scales = []
+    
     # Widgets
     filters_dict = {}
     if entity_type == "circuit":
@@ -162,7 +168,7 @@ def get_entities(
                                 new_r = event["new"][-1]["r1"]
                             else:  # r2 unchanged
                                 new_r = event["new"][-1]["r2"]
-                            # Enforce selection of a single row (the last single one that was selected)
+                            # Enforce selection of a single row (last one that was selected)
                             grid.selections = [
                                 {
                                     "r1": new_r,

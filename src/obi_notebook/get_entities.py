@@ -27,6 +27,7 @@ def get_entities(
     """
     if page_size is not None:
         assert page_size > 0, "ERROR: Page size must be larger than 0!"
+        # TODO: Could add an upper limit as well here
 
     # Widgets
     filters_dict = {}

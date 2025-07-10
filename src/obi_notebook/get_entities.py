@@ -4,7 +4,7 @@ import ipywidgets as widgets
 import numpy as np
 import pandas as pd
 import requests
-from entitysdk import Client, models
+from entitysdk import Client, models, types
 from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import clear_output, display
 
@@ -33,7 +33,7 @@ def get_entities(
     filters_dict = {}
     if entity_type == "circuit":
         scale_filter = widgets.Dropdown(
-            options=["single", "pair", "small", "microcircuit", "region", "system", "whole"],
+            options=[_scale.value for _scale in types.CircuitScale],
             description="Scale:",
         )
         filters_dict["scale"] = scale_filter

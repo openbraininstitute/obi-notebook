@@ -45,7 +45,7 @@ def get_entities(
         add_columns = []
     if exclude_scales is None:
         exclude_scales = []
-    
+
     # Widgets
     filters_dict = {}
     if entity_type == "circuit":

@@ -32,13 +32,14 @@ def _resolve_list_to_first_element(obj):
 _df_postprocess_funs = {"reconstruction-morphology": {"mtypes": _resolve_list_to_first_element}}
 
 
-def list_of_existing_mtypes(entity_core_url, token):
+def _list_of_existing_mtypes(entity_core_url, token):
     global LST_MTYPES_
     if LST_MTYPES_ is None:
         response = requests.get(
             f"{entity_core_url}/mtype",
             headers={"authorization": f"Bearer {token}"},
             params={"page_size": 1000},
+            timeout=30,
         )
         data = response.json()
         df_mtype = pd.json_normalize(data["data"])
@@ -46,13 +47,14 @@ def list_of_existing_mtypes(entity_core_url, token):
     return LST_MTYPES_
 
 
-def list_of_existing_species(entity_core_url, token):
+def _list_of_existing_species(entity_core_url, token):
     global LST_SPECIES_
     if LST_SPECIES_ is None:
         response = requests.get(
             f"{entity_core_url}/species",
             headers={"authorization": f"Bearer {token}"},
             params={"page_size": 1000},
+            timeout=30,
         )
         data = response.json()
         df_species = pd.json_normalize(data["data"])
@@ -107,7 +109,7 @@ def get_entities(
         )
         filters_dict["scale"] = scale_filter
     elif entity_type == "reconstruction-morphology":
-        lst_mtypes = list_of_existing_mtypes(entity_core_url, token) + [""]
+        lst_mtypes = _list_of_existing_mtypes(entity_core_url, token) + [""]
         mtype_filter = widgets.Combobox(
             placeholder="Select M-Type",
             description="M-Type:",
@@ -115,7 +117,7 @@ def get_entities(
             ensure_option=True,
         )
         filters_dict["mtype__pref_label"] = mtype_filter
-        lst_species = list_of_existing_species(entity_core_url, token) + [""]
+        lst_species = _list_of_existing_species(entity_core_url, token) + [""]
         species_filter = widgets.Dropdown(options=lst_species, value="", description="Species:")
         filters_dict["species__name"] = species_filter
 

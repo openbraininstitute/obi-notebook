@@ -93,8 +93,8 @@ def get_entities(
 
         headers = {"authorization": f"Bearer {token}"}
         if project_context:
-            headers["virtual-lab-id"] = project_context.virtual_lab_id
-            headers["project-id"] = project_context.project_id
+            headers["virtual-lab-id"] = str(project_context.virtual_lab_id)
+            headers["project-id"] = str(project_context.project_id)
         response = requests.get(
             f"{entity_core_url}/{entity_type}",
             headers=headers,

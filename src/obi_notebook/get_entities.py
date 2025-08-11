@@ -8,6 +8,10 @@ from entitysdk import Client, models, types
 from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import clear_output, display
 
+LST_MTYPES_ = None
+LST_SPECIES_ = None
+STR_NO_MTYPE = "NONE"
+
 
 def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
     widths = {}
@@ -15,6 +19,47 @@ def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
         max_len = max(df[col].astype(str).map(len).max(), len(col))
         widths[col] = min(max_size, max_len * char_width + padding)
     return widths
+
+
+def _resolve_list_to_first_element(obj):
+    if isinstance(obj, list):
+        if len(obj) > 0:
+            return obj[0]["pref_label"]
+        return STR_NO_MTYPE
+    return obj["pref_label"]
+
+
+_df_postprocess_funs = {"reconstruction-morphology": {"mtypes": _resolve_list_to_first_element}}
+
+
+def _list_of_existing_mtypes(entity_core_url, token):
+    global LST_MTYPES_
+    if LST_MTYPES_ is None:
+        response = requests.get(
+            f"{entity_core_url}/mtype",
+            headers={"authorization": f"Bearer {token}"},
+            params={"page_size": 1000},
+            timeout=30,
+        )
+        data = response.json()
+        df_mtype = pd.json_normalize(data["data"])
+        LST_MTYPES_ = list(df_mtype["pref_label"])
+    return LST_MTYPES_
+
+
+def _list_of_existing_species(entity_core_url, token):
+    global LST_SPECIES_
+    if LST_SPECIES_ is None:
+        response = requests.get(
+            f"{entity_core_url}/species",
+            headers={"authorization": f"Bearer {token}"},
+            params={"page_size": 1000},
+            timeout=30,
+        )
+        data = response.json()
+        df_species = pd.json_normalize(data["data"])
+        LST_SPECIES_ = list(df_species["name"])
+    return LST_SPECIES_
 
 
 def get_entities(
@@ -46,6 +91,9 @@ def get_entities(
     if exclude_scales is None:
         exclude_scales = []
 
+    subdomain = "www" if env == "production" else "staging"
+    entity_core_url = f"https://{subdomain}.openbraininstitute.org/api/entitycore"
+
     # Widgets
     filters_dict = {}
     if entity_type == "circuit":
@@ -60,8 +108,20 @@ def get_entities(
             description="Scale:",
         )
         filters_dict["scale"] = scale_filter
+    elif entity_type == "reconstruction-morphology":
+        lst_mtypes = _list_of_existing_mtypes(entity_core_url, token) + [""]
+        mtype_filter = widgets.Combobox(
+            placeholder="Select M-Type",
+            description="M-Type:",
+            options=lst_mtypes,
+            ensure_option=True,
+        )
+        filters_dict["mtype__pref_label"] = mtype_filter
+        lst_species = _list_of_existing_species(entity_core_url, token) + [""]
+        species_filter = widgets.Dropdown(options=lst_species, value="", description="Species:")
+        filters_dict["species__name"] = species_filter
 
-    filters_dict["name"] = widgets.Text(description="Name:")
+    filters_dict["name__ilike"] = widgets.Text(description="Name:")
 
     if show_pages:
         filters_dict["page"] = widgets.Dropdown(
@@ -76,9 +136,6 @@ def get_entities(
     # Output area
     output = widgets.Output()
 
-    subdomain = "www" if env == "production" else "staging"
-    entity_core_url = f"https://{subdomain}.openbraininstitute.org/api/entitycore"
-
     # Fetch and display function
     def fetch_data(filter_values):
         if page_size is None:
@@ -86,10 +143,10 @@ def get_entities(
         else:
             params = {"page_size": page_size}
         for k, v in filter_values.items():
-            if k == "name":
-                params["name__ilike"] = v
-            else:
-                params[k] = v
+            if isinstance(v, str):
+                if len(v.strip()) == 0:
+                    continue
+            params[k] = v
 
         headers = {"authorization": f"Bearer {token}"}
         if project_context:
@@ -128,6 +185,7 @@ def get_entities(
                 "description",
                 "brain_region.name",
                 "subject.species.name",
+                "species.name",  # For morphologies
             ] + add_columns
             if len(df) == 0:
                 if show_pages and filters_dict["page"].value != 1:
@@ -138,6 +196,10 @@ def get_entities(
 
             proper_columns = [_col for _col in proper_columns if _col in df.columns]
             df = df[proper_columns].reset_index(drop=True)
+
+            for colname, fun in _df_postprocess_funs.get(entity_type, {}).items():
+                if colname in df.columns:
+                    df[colname] = df[colname].apply(fun)
 
             if show_pages:
                 num_pages = np.maximum(

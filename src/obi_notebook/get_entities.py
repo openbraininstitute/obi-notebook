@@ -12,9 +12,7 @@ LST_MTYPES_ = None
 LST_SPECIES_ = None
 LST_EMDATASETS_ = None
 STR_NO_MTYPE = "NONE"
-ENTITY_CLASS_DICT = {
-    "em-cell-mesh": "EMCellMesh"
-}
+ENTITY_CLASS_DICT = {"em-cell-mesh": "EMCellMesh"}
 
 
 def _estimate_column_widths(df, char_width=8, padding=2, max_size=250):
@@ -33,8 +31,10 @@ def _resolve_list_to_first_element(obj):
     return obj["pref_label"]
 
 
-_df_postprocess_funs = {"reconstruction-morphology": {"mtypes": _resolve_list_to_first_element},
-                        "em-cell-mesh": {"dense_reconstruction_cell_id": str}}
+_df_postprocess_funs = {
+    "reconstruction-morphology": {"mtypes": _resolve_list_to_first_element},
+    "em-cell-mesh": {"dense_reconstruction_cell_id": str},
+}
 
 
 def _list_of_existing_mtypes(entity_core_url, token):
@@ -65,6 +65,7 @@ def _list_of_existing_species(entity_core_url, token):
         df_species = pd.json_normalize(data["data"])
         LST_SPECIES_ = list(df_species["name"])
     return LST_SPECIES_
+
 
 def _list_of_existing_em_dense_datasets(entity_core_url, token):
     global LST_EMDATASETS_
@@ -151,7 +152,6 @@ def get_entities(
         )
         filters_dict["em_dense_reconstruction_dataset__name__ilike"] = em_dataset_filter
         filters_dict["dense_reconstruction_cell_id"] = widgets.Text(description="Cell ID:")
-
 
     if show_pages:
         filters_dict["page"] = widgets.Dropdown(
@@ -282,7 +282,9 @@ def get_entities(
                             token_manager=token,
                         )
 
-                        entity_class_default = "".join([_token.capitalize() for _token in entity_type.split("-")])
+                        entity_class_default = "".join(
+                            [_token.capitalize() for _token in entity_type.split("-")]
+                        )
                         entity_class_name = ENTITY_CLASS_DICT.get(entity_type, entity_class_default)
                         model_class = getattr(models, entity_class_name)
                         retrieved_entities = client.search_entity(

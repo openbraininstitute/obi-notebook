@@ -129,7 +129,8 @@ def get_entities(
         )
         filters_dict["scale"] = scale_filter
         filters_dict["name__ilike"] = widgets.Text(description="Name:")
-    elif entity_type == "reconstruction-morphology":
+    elif (entity_type == "reconstruction-morphology" or
+          entity_type == "cell-morphology"):
         lst_mtypes = _list_of_existing_mtypes(entity_core_url, token) + [""]
         mtype_filter = widgets.Combobox(
             placeholder="Select M-Type",

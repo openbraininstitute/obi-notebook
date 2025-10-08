@@ -2,14 +2,29 @@
 
 import ipywidgets as widgets
 import requests
+from os import getenv
 from entitysdk import ProjectContext
 from IPython.display import display
 
+from obi_notebook.get_environment import get_environment
+
 selected_project = None  # Global variable
 
+VAR_PROJECT = "OBI_PROJECT_ID"
 
-def get_projects(token, env="production"):
+def get_default_project(project_list):
+    var = getenv(VAR_PROJECT)
+    for i, proj in enumerate(project_list):
+        if proj["id"] == var:
+            return i
+    return 0
+
+
+def get_projects(token, env=None):
     """Returns available project for the end user."""
+
+    if env is None:
+        env = get_environment()
 
     def project_handler(selected, project_context):
         project_context.project_id = selected["id"]
@@ -34,15 +49,17 @@ def get_projects(token, env="production"):
         return widgets.Label("No projects found.")
 
     options = [(project["name"], project) for project in project_list]
+    default_sel_idx = get_default_project(project_list)
 
     project_context = ProjectContext(
-        project_id=project_list[0]["id"],
-        virtual_lab_id=project_list[0]["virtual_lab_id"],
+        project_id=project_list[default_sel_idx]["id"],
+        virtual_lab_id=project_list[default_sel_idx]["virtual_lab_id"],
         environment=env,
     )
     dropdown = widgets.Dropdown(
         options=options,
         description="Select:",
+        index=default_sel_idx,
     )
 
     def on_change(change):

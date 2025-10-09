@@ -1,8 +1,9 @@
 """Example code to show complete use case."""
 
+from os import getenv
+
 import ipywidgets as widgets
 import requests
-from os import getenv
 from entitysdk import ProjectContext
 from IPython.display import display
 
@@ -12,7 +13,9 @@ selected_project = None  # Global variable
 
 VAR_PROJECT = "OBI_PROJECT_ID"
 
+
 def get_default_project(project_list):
+    """Try to guess the project id to use from a list using environment variables."""
     var = getenv(VAR_PROJECT)
     for i, proj in enumerate(project_list):
         if proj["id"] == var:
@@ -22,7 +25,6 @@ def get_default_project(project_list):
 
 def get_projects(token, env=None):
     """Returns available project for the end user."""
-
     if env is None:
         env = get_environment()
 

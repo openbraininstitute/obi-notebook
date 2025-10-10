@@ -5,11 +5,15 @@ import requests
 from entitysdk import ProjectContext
 from IPython.display import display
 
+from obi_notebook.get_environment import get_environment
+
 selected_project = None  # Global variable
 
 
-def get_projects(token, env="production"):
+def get_projects(token, env=None):
     """Returns available project for the end user."""
+    if env is None:
+        env = get_environment()
 
     def project_handler(selected, project_context):
         project_context.project_id = selected["id"]

@@ -8,6 +8,8 @@ from entitysdk import Client, models, types
 from ipydatagrid import DataGrid, TextRenderer
 from IPython.display import clear_output, display
 
+from obi_notebook.get_environment import get_environment
+
 LST_MTYPES_ = None
 LST_SPECIES_ = None
 LST_EMDATASETS_ = None
@@ -86,7 +88,7 @@ def get_entities(
     entity_type,
     token,
     result,
-    env="production",
+    env=None,
     project_context=None,
     return_entities=False,
     multi_select=True,
@@ -101,6 +103,8 @@ def get_entities(
     Note: The 'result' parameter is a mutable object (a list) that is modified in-place
       and also returned.
     """
+    if env is None:
+        env = get_environment()
     if page_size is not None:
         if page_size <= 0:
             raise ValueError("ERROR: Page size must be larger than 0!")
@@ -295,6 +299,7 @@ def get_entities(
                         result.extend(l_ids)
 
             grid.observe(on_selection_change, names="selections")
+            grid.selections = [{"r1": 0, "r2": 0, "c1": 0, "c2": len(column_widths)}]
 
     for filter_ in filters_dict.values():
         filter_.observe(on_change, names="value")

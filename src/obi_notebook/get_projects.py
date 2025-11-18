@@ -22,7 +22,7 @@ def get_projects(token, env=None):
     subdomain = "www" if env == "production" else "staging"
 
     url = (
-        f"https://{subdomain}.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects"
+        f"https://{subdomain}.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects?size=100"
     )
     headers = {"authorization": f"Bearer {token}"}
     ret = requests.get(url, headers=headers, timeout=30)

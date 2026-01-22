@@ -115,7 +115,7 @@ def get_entities(
     if exclude_scales is None:
         exclude_scales = []
 
-    subdomain = "www" if env == "production" else "staging"
+    subdomain = "cell-a" if env == "production" else "staging.cell-a"
     entity_core_url = f"https://{subdomain}.openbraininstitute.org/api/entitycore"
 
     # Widgets

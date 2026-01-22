@@ -19,7 +19,7 @@ def get_projects(token, env=None):
         project_context.project_id = selected["id"]
         project_context.virtual_lab_id = selected["virtual_lab_id"]
 
-    subdomain = "www" if env == "production" else "staging"
+    subdomain = "cell-a" if env == "production" else "staging.cell-a"
 
     url = (
         f"https://{subdomain}.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects"

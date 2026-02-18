@@ -38,26 +38,16 @@ def _file_last_saved_str(fn):
     return pretty_str
 
 
-def _this_user(client: Client) -> models.Person | None:
+def _this_user(client: Client) -> str | None:
     user_info = get_user_info(client._token_manager.get_token())
-    user = client.search_entity(
-        entity_type=models.Person,
-        query={
-            "given_name": user_info["given_name"],
-            "family_name": user_info["family_name"],
-            "pref_label": user_info["name"],
-        },
-    ).first()
-    return user
+    return user_info.get("sub", None)
 
 
-def _try_to_find_matching_entity(
-    client: Client, notebook_name: str, user: models.Person | None = None
-):
-    if user is None:
+def _try_to_find_matching_entity(client: Client, notebook_name: str, user_sub: str | None = None):
+    if user_sub is None:
         query = {"name": notebook_name, "authorized_public": False}
     else:
-        query = {"created_by__id": user.id, "name": notebook_name, "authorized_public": False}
+        query = {"created_by__sub_id": user_sub, "name": notebook_name, "authorized_public": False}
     query_res = client.search_entity(entity_type=models.AnalysisNotebookResult, query=query)
     return query_res.all()
 

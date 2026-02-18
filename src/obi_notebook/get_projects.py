@@ -13,14 +13,16 @@ selected_project = None  # Global variable
 
 VAR_PROJECT = "OBI_PROJECT_ID"
 
+
 def get_default_project(project_list):
     """Try to guess the project id to use from a list using:
-      1. a globally defined variable, or
-      2. an environment variable.
-      Fallback is simply the first project in the list."""
+    1. a globally defined variable, or
+    2. an environment variable.
+    Fallback is simply the first project in the list."""
     glbl_proj_str = None
     try:
         from __main__ import OBI_PROJECT_ID
+
         glbl_proj_str = OBI_PROJECT_ID
     except ImportError:
         pass
@@ -32,6 +34,7 @@ def get_default_project(project_list):
         if proj["id"] == var:
             return i
     return 0
+
 
 def get_projects(token, env=None):
     """Returns available project for the end user."""

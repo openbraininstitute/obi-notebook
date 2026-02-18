@@ -1,9 +1,9 @@
 """Example code to show complete use case."""
 
+from os import getenv
+
 import ipywidgets as widgets
 import requests
-
-from os import getenv
 from entitysdk import ProjectContext
 from IPython.display import display
 
@@ -15,10 +15,13 @@ VAR_PROJECT = "OBI_PROJECT_ID"
 
 
 def get_default_project(project_list):
-    """Try to guess the project id to use from a list using:
+    """Try to guess the project id to use from a list.
+
+    This uses:
     1. a globally defined variable, or
     2. an environment variable.
-    Fallback is simply the first project in the list."""
+    Fallback is simply the first project in the list.
+    """
     glbl_proj_str = None
     try:
         from __main__ import OBI_PROJECT_ID

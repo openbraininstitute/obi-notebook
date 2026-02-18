@@ -1,5 +1,7 @@
 """Example code to show complete use case."""
 
+from os import getenv
+
 import ipywidgets as widgets
 import requests
 from entitysdk import ProjectContext
@@ -8,6 +10,33 @@ from IPython.display import display
 from obi_notebook.get_environment import get_environment
 
 selected_project = None  # Global variable
+
+VAR_PROJECT = "OBI_PROJECT_ID"
+
+
+def get_default_project(project_list):
+    """Try to guess the project id to use from a list.
+
+    This uses:
+    1. a globally defined variable, or
+    2. an environment variable.
+    Fallback is simply the first project in the list.
+    """
+    glbl_proj_str = None
+    try:
+        from __main__ import OBI_PROJECT_ID
+
+        glbl_proj_str = OBI_PROJECT_ID
+    except ImportError:
+        pass
+    for i, proj in enumerate(project_list):
+        if proj["id"] == glbl_proj_str:
+            return i
+    var = getenv(VAR_PROJECT)
+    for i, proj in enumerate(project_list):
+        if proj["id"] == var:
+            return i
+    return 0
 
 
 def get_projects(token, env=None):
@@ -38,15 +67,17 @@ def get_projects(token, env=None):
         return widgets.Label("No projects found.")
 
     options = [(project["name"], project) for project in project_list]
+    default_sel_idx = get_default_project(project_list)
 
     project_context = ProjectContext(
-        project_id=project_list[0]["id"],
-        virtual_lab_id=project_list[0]["virtual_lab_id"],
+        project_id=project_list[default_sel_idx]["id"],
+        virtual_lab_id=project_list[default_sel_idx]["virtual_lab_id"],
         environment=env,
     )
     dropdown = widgets.Dropdown(
         options=options,
         description="Select:",
+        index=default_sel_idx,
     )
 
     def on_change(change):

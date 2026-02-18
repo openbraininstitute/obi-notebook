@@ -10,17 +10,17 @@ from obi_auth import get_token_info
 MIN_TIME_LEFT_SEC = 600
 
 
-def get_token():
+def get_token(auth_mode="daf"):
     """Gets an access token for the user."""
     token = getenv("OBI_ACCESS_TOKEN")
     if token is None:
-        return auth_get_token()
+        return auth_get_token(auth_mode=auth_mode)
 
     try:
         token_info = get_token_info(token)
     except DecodeError:
-        return auth_get_token()
+        return auth_get_token(auth_mode=auth_mode)
 
     if (token_info["exp"] - time()) <= MIN_TIME_LEFT_SEC:
-        return auth_get_token()
+        return auth_get_token(auth_mode=auth_mode)
     return token

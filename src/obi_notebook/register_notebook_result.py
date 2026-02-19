@@ -14,11 +14,13 @@ _IPYNB = ".ipynb"
 
 
 def _find_potential_notebook_files() -> list[str]:
+    """Find .ipynb files in the the current working directory."""
     fns = [fn for fn in listdir() if path.splitext(fn)[1] == _IPYNB]
     return fns
 
 
-def _file_last_saved_str(fn):
+def _file_last_saved_str(fn: str) -> str:
+    """For a file path, create a string that describes when it was last saved."""
     time_changed = datetime.fromtimestamp(stat(fn).st_mtime)
     time_delta = datetime.now() - time_changed
 
@@ -39,11 +41,13 @@ def _file_last_saved_str(fn):
 
 
 def _this_user(client: Client) -> str | None:
+    """Get the authenticated user's "sub_id" for use with queries."""
     user_info = get_user_info(client._token_manager.get_token())
     return user_info.get("sub", None)
 
 
 def _try_to_find_matching_entity(client: Client, notebook_name: str, user_sub: str | None = None):
+    """For a 'name' string and user sub_id return matching NotebookResult entities."""
     if user_sub is None:
         query = {"name": notebook_name, "authorized_public": False}
     else:
@@ -52,14 +56,23 @@ def _try_to_find_matching_entity(client: Client, notebook_name: str, user_sub: s
     return query_res.all()
 
 
-def _nb_entity_description(client: Client, entity_id: UUID):
+def _entity_str(entity: models.AnalysisNotebookResult) -> str:
+    """For a NotebookResult entity, create a descriptive string."""
+    if entity.update_date is not None:
+        return f"{entity.name}: {entity.update_date.strftime('%Y-%m-%d %H:%M')}"
+    return f"{entity.name}"
+
+
+def _nb_entity_description(client: Client, entity_id: UUID) -> str:
+    """For a NotebookResult entity, return its .description property as a str."""
     entity = client.get_entity(entity_id=entity_id, entity_type=models.AnalysisNotebookResult)
-    return entity.description
+    return str(entity.description)
 
 
 def _register_result(
     client: Client, notebook_file: Path, notebook_name: str, notebook_description: str
-):
+) -> tuple[UUID, UUID]:
+    """Create and register a new NotebookResult entity."""
     print("Creating notebook entity...")
     nb_entity_raw = models.AnalysisNotebookResult(
         name=notebook_name, description=notebook_description, authorized_public=False
@@ -91,6 +104,7 @@ def _update_result(
     notebook_name: str,
     notebook_description: str,
 ):
+    """Update an existing NotebookResult entity (name, description and assets)."""
     nb_entity_found = client.get_entity(
         entity_id=entity_id, entity_type=models.AnalysisNotebookResult
     )
@@ -179,12 +193,16 @@ class NotebookResultRegistration:
         confirm_btn = widgets.Button(description="Register", button_style="success")
 
         lst_found_entites = []
-        if self._notebook_entity_id is not None:
-            lst_found_entites.append((self._notebook_name, self._notebook_entity_id))
+        if self._notebook_entity_id is not None and self._notebook_name is not None:
+            self_entity = client.get_entity(
+                self._notebook_entity_id, entity_type=models.AnalysisNotebookResult
+            )
+            lst_found_entites.append((_entity_str(self_entity), self._notebook_entity_id))
             lst_found_entites.append(("New result", None))
-            confirm_btn.button_style = "info"
+            confirm_btn = widgets.Button(description="Update", button_style="info")
         else:
             lst_found_entites.append(("New result", None))
+            confirm_btn = widgets.Button(description="Register", button_style="success")
         sel_existing = widgets.Dropdown(
             description="Overwrite or create new",
             options=lst_found_entites,
@@ -203,10 +221,8 @@ class NotebookResultRegistration:
         # --------------------------------------------------------------
         #   Callbacks that update other widgets
         # --------------------------------------------------------------
+        # "Name" text box -> Update dropdown options unless there was a previous save.
         def _on_name_changed(change):
-            def _entity_str(entity):
-                return f"{entity.name}: {entity.update_date.strftime('%Y-%m-%d %H:%M')}"
-
             if self._notebook_entity_id is None:
                 lst_found = _try_to_find_matching_entity(client, change["new"].strip(), self._user)
                 options_found = [("New result", None)] + [
@@ -215,6 +231,7 @@ class NotebookResultRegistration:
                 sel_existing.options = options_found
                 sel_existing.index = 0
 
+        # Dropdown selection -> Update button: register or update. Also description str.
         def _on_selection_change(change):
             if change["new"] is None:
                 confirm_btn.description = "Register"

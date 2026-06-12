@@ -106,14 +106,7 @@ def _find_launch_file(start: str | Path | None = None) -> Path | None:
 
 
 def _fetch_params(base: str, token: str) -> dict[str, Any]:
-    """Fetch the per-student params bound to ``token`` from ``GET /params``.
-
-    Returns an empty dict when the token has no params (opted-out / legacy, 404)
-    or when the service answers 200 with a non-JSON / unexpected body. Raises
-    :class:`GradingError` when the token is rejected (401 / 403), the service
-    returns another error status, or it cannot be reached at all — so the caller
-    sees a clear message instead of a raw network / HTTP traceback.
-    """
+    """Fetch the per-student params bound to ``token`` from ``GET /params``."""
     try:
         resp = requests.get(
             f"{base}/params",
@@ -123,7 +116,11 @@ def _fetch_params(base: str, token: str) -> dict[str, Any]:
     except requests.RequestException as exc:
         raise GradingError(f"Could not reach the grading service at {base}: {exc}") from exc
     if resp.status_code == 404:
-        return {}
+        raise GradingError(
+            f"Grading service returned 404 for GET {base}/params. The grading-service "
+            "route is likely misconfigured or unreachable. "
+            "The notebook cannot fetch exercise parameters until this is resolved."
+        )
     if resp.status_code in (401, 403):
         raise GradingError(_detail(resp, "Grading service rejected the launch token."))
     if not resp.ok:
@@ -316,7 +313,7 @@ def load(
     Raises:
         FileNotFoundError: No launch file was found and no overrides were passed.
         ValueError: The launch file is missing ``token`` or ``exercise_id``.
-        GradingError: The grading service rejected the token.
+        GradingError: The grading service rejected the token, or could not serve params.
     """
     resolved_env: object = env if env is not None else get_environment()
     base = _base_url(resolved_env)

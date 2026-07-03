@@ -1,16 +1,23 @@
 """Notebook-side helper for the OBI grading service.
 
 The Notebook Service writes a ``.grading.json`` launch file into the student's
-pod next to the notebook. This module reads that file, fetches the per-student
-exercise parameters from the grading service, and submits answers back to it.
+pod next to the notebook. This module reads the launch token from that file,
+fetches the assignment's shared parameters and its list of gradable exercises
+from the grading service, and submits answers back to it. One assignment holds
+one or more independently graded exercises, each its own gradebook column.
 
 Typical notebook usage::
 
     from obi_notebook import grading
 
-    exercise = grading.load()  # reads .grading.json, fetches params
-    a, b = exercise.params["a"], exercise.params["b"]
-    exercise.submit(my_solution(a, b))  # cell renders "You scored 100%"
+    assignment = grading.load()  # reads .grading.json, fetches params + exercises
+    a, b = assignment.params["a"], assignment.params["b"]
+    assignment.exercise_keys  # e.g. ["depolarization", "time_constant"]
+    assignment.submit(my_solution(a, b), exercise="depolarization")
+
+For a single-exercise assignment the ``exercise`` argument may be omitted::
+
+    assignment.submit(my_solution(a, b))  # cell renders "You scored 100%"
 
 See the grading-service ``docs/system-design.md`` for the full launch-and-grading
 contract. The grading-service base URL is resolved at runtime from
@@ -105,8 +112,20 @@ def _find_launch_file(start: str | Path | None = None) -> Path | None:
     return None
 
 
-def _fetch_params(base: str, token: str) -> dict[str, Any]:
-    """Fetch the per-student params bound to ``token`` from ``GET /params``."""
+def _fetch_assignment(base: str, token: str) -> dict[str, Any]:
+    """Fetch the assignment bound to ``token`` from ``GET /params``.
+
+    A single call returns the shared per-student params and the exercise list for
+    the whole assignment.
+
+    Returns:
+        A dict with ``assignment_id`` (str), ``exercises`` (a list of
+        ``{"key", "label"}`` dicts), and ``params`` (dict).
+
+    Raises:
+        GradingError: The service is unreachable, rejects the token, no longer
+            has the assignment configured, or returns any other error.
+    """
     try:
         resp = requests.get(
             f"{base}/params",
@@ -117,9 +136,9 @@ def _fetch_params(base: str, token: str) -> dict[str, Any]:
         raise GradingError(f"Could not reach the grading service at {base}: {exc}") from exc
     if resp.status_code == 404:
         raise GradingError(
-            f"Grading service returned 404 for GET {base}/params. The grading-service "
-            "route is likely misconfigured or unreachable. "
-            "The notebook cannot fetch exercise parameters until this is resolved."
+            f"Grading service returned 404 for GET {base}/params: the assignment is no "
+            "longer configured on the server. The notebook cannot fetch its exercises "
+            "until this is resolved."
         )
     if resp.status_code in (401, 403):
         raise GradingError(_detail(resp, "Grading service rejected the launch token."))
@@ -128,16 +147,27 @@ def _fetch_params(base: str, token: str) -> dict[str, Any]:
     try:
         body = resp.json()
     except ValueError:
-        return {}
-    if isinstance(body, dict):
-        params = cast("dict[str, Any]", body).get("params", {})
-        if isinstance(params, dict):
-            return cast("dict[str, Any]", params)
-    return {}
+        body = {}
+    data = cast("dict[str, Any]", body) if isinstance(body, dict) else {}
+    raw_exercises = data.get("exercises", [])
+    exercises: list[dict[str, Any]] = []
+    if isinstance(raw_exercises, list):
+        for item in cast("list[Any]", raw_exercises):
+            if isinstance(item, dict):
+                entry = cast("dict[str, Any]", item)
+                key = entry.get("key")
+                if key:
+                    exercises.append({"key": str(key), "label": str(entry.get("label", key))})
+    params = data.get("params", {})
+    return {
+        "assignment_id": str(data.get("assignment_id", "")),
+        "exercises": exercises,
+        "params": cast("dict[str, Any]", params) if isinstance(params, dict) else {},
+    }
 
 
 class GradeResult:
-    """Outcome of an :meth:`Exercise.submit` call.
+    """Outcome of an :meth:`Assignment.submit` call.
 
     Carries the numeric ``score`` and the server ``message`` for programmatic use,
     and renders a styled summary when displayed as the value of a notebook cell.
@@ -147,7 +177,9 @@ class GradeResult:
         status_code: The HTTP status returned by ``POST /grade``.
         score: The numeric score (``0.0``-``1.0``), or ``None`` on error.
         message: The human-readable message from the grading service.
-        exercise_id: The exercise the answer was graded against.
+        exercise: The exercise key the answer was graded against.
+        assignment_id: The assignment the exercise belongs to, when reported.
+        moodle_server_id: The Moodle server id, when reported.
         raw: The parsed JSON body (or raw text when not JSON).
     """
 
@@ -158,7 +190,9 @@ class GradeResult:
         status_code: int,
         score: float | None,
         message: str,
-        exercise_id: str | None,
+        exercise: str | None,
+        assignment_id: str | None,
+        moodle_server_id: str | None,
         raw: Any,
     ) -> None:
         """Store the fields of a graded answer; see class docstring."""
@@ -166,11 +200,13 @@ class GradeResult:
         self.status_code = status_code
         self.score = score
         self.message = message
-        self.exercise_id = exercise_id
+        self.exercise = exercise
+        self.assignment_id = assignment_id
+        self.moodle_server_id = moodle_server_id
         self.raw = raw
 
     @classmethod
-    def from_transport_error(cls, exc: Exception, *, exercise_id: str | None) -> GradeResult:
+    def from_transport_error(cls, exc: Exception, *, exercise: str | None) -> GradeResult:
         """Build a :class:`GradeResult` for a request that never received a response.
 
         Used when ``POST /grade`` fails at the transport layer (connection error,
@@ -182,7 +218,9 @@ class GradeResult:
             status_code=0,
             score=None,
             message=f"Could not reach the grading service: {exc}",
-            exercise_id=exercise_id,
+            exercise=exercise,
+            assignment_id=None,
+            moodle_server_id=None,
             raw=None,
         )
 
@@ -204,7 +242,9 @@ class GradeResult:
             status_code=resp.status_code,
             score=data.get("score"),
             message=str(message),
-            exercise_id=data.get("exercise_id"),
+            exercise=data.get("exercise"),
+            assignment_id=data.get("assignment_id"),
+            moodle_server_id=data.get("moodle_server_id"),
             raw=data or resp.text,
         )
 
@@ -220,7 +260,8 @@ class GradeResult:
         """Return a concise text representation for non-notebook contexts."""
         return (
             f"GradeResult(ok={self.ok}, status_code={self.status_code}, "
-            f"score={self.score!r}, message={self._headline()!r})"
+            f"score={self.score!r}, exercise={self.exercise!r}, "
+            f"message={self._headline()!r})"
         )
 
     def _repr_html_(self) -> str:
@@ -239,98 +280,141 @@ class GradeResult:
         )
 
 
-class Exercise:
-    """A launched exercise: its per-student params and a way to submit answers.
+class Assignment:
+    """A launched assignment: its shared params and gradable exercises.
 
-    Returned by :func:`load`. ``params`` is the seeded parameter dict for this
-    student (``{}`` when the exercise opts out of per-student parameterization).
+    Returned by :func:`load`. An assignment holds one or more independently graded
+    exercises (each a gradebook column); ``params`` is the seeded parameter dict
+    shared across them (always at least ``{"seed": ...}``).
+
+    Attributes:
+        assignment_id: The tenant-scoped assignment key.
+        params: The shared per-student seeded params.
+        exercises: The exercises as ``{"key", "label"}`` dicts.
     """
 
     def __init__(
         self,
         *,
         token: str,
-        exercise_id: str,
+        assignment_id: str,
         params: dict[str, Any],
+        exercises: list[dict[str, Any]],
         base: str,
     ) -> None:
         """Store the launch context; see :func:`load` for how it is populated."""
         self._token = token
-        self.exercise_id = exercise_id
+        self.assignment_id = assignment_id
         self.params = params
+        self.exercises = exercises
         self._base = base
 
-    def submit(self, answer: Any) -> GradeResult:
-        """Submit ``answer`` to ``POST /grade`` and return a :class:`GradeResult`.
+    @property
+    def exercise_keys(self) -> list[str]:
+        """Return the bare exercise keys, in the order the server listed them."""
+        return [str(exercise["key"]) for exercise in self.exercises]
+
+    def _resolve_exercise(self, exercise: str | None) -> str:
+        """Resolve and validate the target exercise key for a submission."""
+        keys = self.exercise_keys
+        if exercise is None:
+            if len(keys) == 1:
+                return keys[0]
+            raise ValueError(
+                f"This assignment has multiple exercises {keys}; "
+                "pass exercise=<key> to choose which one to submit."
+            )
+        if exercise not in keys:
+            raise ValueError(f"Unknown exercise {exercise!r}. Valid exercises: {keys}.")
+        return exercise
+
+    def submit(self, answer: Any, exercise: str | None = None) -> GradeResult:
+        """Submit ``answer`` for one exercise to ``POST /grade``.
 
         Args:
-            answer: Any JSON-serializable answer value for this exercise.
+            answer: Any JSON-serializable answer value for the exercise.
+            exercise: The exercise key to grade against. May be omitted only when
+                the assignment has exactly one exercise, in which case that one is
+                used.
 
         Returns:
             A :class:`GradeResult`; an error response (e.g. a shape-rejected
             answer) or a transport failure (connection error / timeout) is
             returned as a result, not raised, so the student can retry.
+
+        Raises:
+            ValueError: ``exercise`` is unknown, or is omitted while the assignment
+                has more than one exercise.
         """
+        exercise_key = self._resolve_exercise(exercise)
         payload: dict[str, Any] = {
             "token": self._token,
             "answer": answer,
-            "exercise_id": self.exercise_id,
+            "exercise": exercise_key,
         }
         try:
             resp = requests.post(f"{self._base}/grade", json=payload, timeout=_TIMEOUT)
         except requests.RequestException as exc:
-            return GradeResult.from_transport_error(exc, exercise_id=self.exercise_id)
+            return GradeResult.from_transport_error(exc, exercise=exercise_key)
         return GradeResult.from_response(resp)
 
     def __repr__(self) -> str:
-        """Return a concise text representation of the exercise handle."""
-        return f"Exercise(exercise_id={self.exercise_id!r}, params={self.params!r})"
+        """Return a concise text representation of the assignment handle."""
+        return (
+            f"Assignment(assignment_id={self.assignment_id!r}, "
+            f"exercise_keys={self.exercise_keys!r}, params={self.params!r})"
+        )
 
 
 def load(
     token: str | None = None,
-    exercise_id: str | None = None,
     env: str | None = None,
     path: str | Path | None = None,
-) -> Exercise:
-    """Load the launched exercise and eagerly fetch its per-student parameters.
+) -> Assignment:
+    """Load the launched assignment and eagerly fetch its params and exercises.
 
     Finds the ``.grading.json`` launch file next to the notebook (walking up
-    parent directories), resolves the grading-service base URL from the
-    deployment environment, and fetches ``GET /params`` so ``exercise.params`` is
-    ready on return.
+    parent directories), resolves the grading-service base URL from the deployment
+    environment, and fetches ``GET /params`` so ``assignment.params``,
+    ``assignment.exercises``, and ``assignment.exercise_keys`` are ready on return.
 
     Args:
-        token: Launch token. If both ``token`` and ``exercise_id`` are given, the
-            launch file is not read (useful for local testing outside a pod).
-        exercise_id: Exercise key. See ``token``.
+        token: Launch token. If given, the launch file is not read (useful for
+            local testing outside a pod); the assignment id and exercises are
+            still fetched from the grading service.
         env: Deployment environment. If ``None``, detected via ``get_environment``.
         path: Explicit path to a ``.grading.json`` file, bypassing discovery.
 
     Returns:
-        An :class:`Exercise` handle.
+        An :class:`Assignment` handle.
 
     Raises:
-        FileNotFoundError: No launch file was found and no overrides were passed.
-        ValueError: The launch file is missing ``token`` or ``exercise_id``.
-        GradingError: The grading service rejected the token, or could not serve params.
+        FileNotFoundError: No launch file was found and no ``token`` was passed.
+        ValueError: The launch file is missing ``token``.
+        GradingError: The grading service rejected the token, or could not serve
+            the assignment.
     """
     resolved_env: object = env if env is not None else get_environment()
     base = _base_url(resolved_env)
 
-    if token is None or exercise_id is None:
+    if token is None:
         launch_path = Path(path) if path else _find_launch_file()
         if launch_path is None or not launch_path.is_file():
             raise FileNotFoundError(
                 f"No {LAUNCH_FILENAME} launch file found near the notebook. This notebook "
-                "must be opened from a grading launch, or pass token=... and exercise_id=... "
-                "explicitly for local testing."
+                "must be opened from a grading launch, or pass token=... explicitly for "
+                "local testing."
             )
         data = cast("dict[str, Any]", json.loads(launch_path.read_text()))
-        token = token or data.get("token")
-        exercise_id = exercise_id or data.get("exercise_id")
-        if not token or not exercise_id:
-            raise ValueError(f"{launch_path} is missing 'token' or 'exercise_id'.")
+        token = data.get("token")
+        if not token:
+            raise ValueError(f"{launch_path} is missing 'token'.")
 
-    params = _fetch_params(base, token)
-    return Exercise(token=token, exercise_id=exercise_id, params=params, base=base)
+    assignment = _fetch_assignment(base, token)
+    return Assignment(
+        token=token,
+        assignment_id=assignment["assignment_id"],
+        params=assignment["params"],
+        exercises=assignment["exercises"],
+        base=base,
+    )

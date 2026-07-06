@@ -121,8 +121,7 @@ def _update_result(
                 attrs_or_entity={"name": notebook_name, "description": notebook_description},
             )
         assets = client.select_assets(
-            entity=nb_entity_found,
-            selection={"label": types.AssetLabel.jupyter_notebook}
+            entity=nb_entity_found, selection={"label": types.AssetLabel.jupyter_notebook}
         ).all()
         for asset in assets:
             print("Deleting existing asset...")

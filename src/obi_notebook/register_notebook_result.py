@@ -15,8 +15,7 @@ _IPYNB = ".ipynb"
 
 def _find_potential_notebook_files() -> list[str]:
     """Find .ipynb files in the the current working directory."""
-    fns = [fn for fn in listdir() if path.splitext(fn)[1] == _IPYNB]
-    return fns
+    return list(glob.glob("*.ipynb"))
 
 
 def _file_last_saved_str(fn: str) -> str:

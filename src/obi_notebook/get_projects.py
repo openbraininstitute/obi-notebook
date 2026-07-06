@@ -21,9 +21,7 @@ def get_projects(token, env=None):
 
     subdomain = "cell-a" if env == "production" else "staging.cell-a"
 
-    url = (
-        f"https://{subdomain}.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects"
-    )
+    url = f"https://{subdomain}.openbraininstitute.org/api/virtual-lab-manager/virtual-labs/projects?size=100"
     headers = {"authorization": f"Bearer {token}"}
     ret = requests.get(url, headers=headers, timeout=30)
     # Basic error handling

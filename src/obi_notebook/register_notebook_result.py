@@ -19,23 +19,26 @@ def _find_potential_notebook_files() -> list[str]:
 
 def _file_last_saved_str(fn: str) -> str:
     """For a file path, create a string that describes when it was last saved."""
-    time_changed = datetime.fromtimestamp(stat(fn).st_mtime)
-    time_delta = datetime.now() - time_changed
+    modified = datetime.fromtimestamp(Path(fn).stat().st_mtime)
+    delta = datetime.now() - modified
 
-    days_delta = time_delta.days
-    seconds_delta = time_delta.seconds % 60
-    hours_delta = time_delta.seconds // 3600
-    minutes_delta = (time_delta.seconds % 3600) // 60
+    seconds = int(delta.total_seconds())
 
-    pretty_str = "Last saved: "
-    if days_delta > 0:
-        pretty_str = pretty_str + f"{days_delta} day(s) "
-    if hours_delta > 0:
-        pretty_str = pretty_str + f"{hours_delta} hour(s) "
-    if minutes_delta > 0:
-        pretty_str = pretty_str + f"{minutes_delta} minute(s) "
-    pretty_str = pretty_str + f"{seconds_delta} second(s) ago"
-    return pretty_str
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes, seconds = divmod(seconds, 60)
+
+    parts = []
+    if days:
+        parts.append(f"{days} day(s)")
+    if hours:
+        parts.append(f"{hours} hour(s)")
+    if minutes:
+        parts.append(f"{minutes} minute(s)")
+
+    parts.append(f"{seconds} second(s) ago")
+
+    return "Last saved: " + " ".join(parts)
 
 
 def _this_user(client: Client) -> str | None:

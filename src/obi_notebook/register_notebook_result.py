@@ -1,21 +1,20 @@
 """Register .ipynb files as AnalysisNotebookResult."""
 
 from datetime import datetime
-from os import listdir, path, stat
+from os import path, stat
 from pathlib import Path
 from uuid import UUID
+from glob import glob
 
 import ipywidgets as widgets
 from entitysdk import Client, EntitySDKError, models, types
 from IPython.display import clear_output, display
 from obi_auth import get_user_info
 
-_IPYNB = ".ipynb"
-
 
 def _find_potential_notebook_files() -> list[str]:
     """Find .ipynb files in the the current working directory."""
-    return list(glob.glob("*.ipynb"))
+    return list(glob("*.ipynb"))
 
 
 def _file_last_saved_str(fn: str) -> str:

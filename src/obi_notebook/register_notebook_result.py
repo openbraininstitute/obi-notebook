@@ -1,10 +1,10 @@
 """Register .ipynb files as AnalysisNotebookResult."""
 
 from datetime import datetime
-from os import path, stat
+from glob import glob
+from os import path
 from pathlib import Path
 from uuid import UUID
-from glob import glob
 
 import ipywidgets as widgets
 from entitysdk import Client, EntitySDKError, models, types
@@ -120,9 +120,10 @@ def _update_result(
                 entity_type=models.AnalysisNotebookResult,
                 attrs_or_entity={"name": notebook_name, "description": notebook_description},
             )
-        assets = [
-            _x for _x in nb_entity_found.assets if _x.label == types.AssetLabel.jupyter_notebook
-        ]
+        assets = client.select_assets(
+            entity=nb_entity_found,
+            selection={"label": types.AssetLabel.jupyter_notebook}
+        ).all()
         for asset in assets:
             print("Deleting existing asset...")
             client.delete_asset(

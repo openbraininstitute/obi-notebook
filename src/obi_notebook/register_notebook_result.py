@@ -135,7 +135,7 @@ def _update_result(
         entity_id=entity_id,
         entity_type=models.AnalysisNotebookResult,
         file_path=notebook_file,
-        file_name=path.split(notebook_file)[1],
+        file_name=notebook_file.name,
         file_content_type=types.ContentType.application_x_ipynb_json,
         asset_label=types.AssetLabel.jupyter_notebook,
     )

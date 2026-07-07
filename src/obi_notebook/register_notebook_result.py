@@ -4,7 +4,6 @@ from datetime import datetime
 from glob import glob
 from os import path
 from pathlib import Path
-
 from typing import cast
 
 import ipywidgets as widgets

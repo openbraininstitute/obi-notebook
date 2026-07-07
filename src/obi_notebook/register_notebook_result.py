@@ -4,10 +4,12 @@ from datetime import datetime
 from glob import glob
 from os import path
 from pathlib import Path
-from uuid import UUID
+
+from typing import cast
 
 import ipywidgets as widgets
 from entitysdk import Client, EntitySDKError, models, types
+from entitysdk.types import ID
 from IPython.display import clear_output, display
 from obi_auth import get_user_info
 
@@ -44,7 +46,7 @@ def _file_last_saved_str(fn: str) -> str:
 def _this_user(client: Client) -> str | None:
     """Get the authenticated user's "sub_id" for use with queries."""
     user_info = get_user_info(client._token_manager.get_token())
-    return user_info.get("sub", None)
+    return user_info["sub"]
 
 
 def _try_to_find_matching_entity(client: Client, notebook_name: str, user_sub: str | None = None):
@@ -59,12 +61,11 @@ def _try_to_find_matching_entity(client: Client, notebook_name: str, user_sub: s
 
 def _entity_str(entity: models.AnalysisNotebookResult) -> str:
     """For a NotebookResult entity, create a descriptive string."""
-    if entity.update_date is not None:
-        return f"{entity.name}: {entity.update_date.strftime('%Y-%m-%d %H:%M')}"
-    return f"{entity.name}"
+    update_date = cast(datetime, entity.update_date)
+    return f"{entity.name}: {update_date.strftime('%Y-%m-%d %H:%M')}"
 
 
-def _nb_entity_description(client: Client, entity_id: UUID) -> str:
+def _nb_entity_description(client: Client, entity_id: ID) -> str:
     """For a NotebookResult entity, return its .description property as a str."""
     entity = client.get_entity(entity_id=entity_id, entity_type=models.AnalysisNotebookResult)
     return str(entity.description)
@@ -72,7 +73,7 @@ def _nb_entity_description(client: Client, entity_id: UUID) -> str:
 
 def _register_result(
     client: Client, notebook_file: Path, notebook_name: str, notebook_description: str
-) -> tuple[UUID, UUID]:
+) -> tuple[ID, ID]:
     """Create and register a new NotebookResult entity."""
     print("Creating notebook entity...")
     nb_entity_raw = models.AnalysisNotebookResult(
@@ -90,9 +91,9 @@ def _register_result(
             file_content_type=types.ContentType.application_x_ipynb_json,
             asset_label=types.AssetLabel.jupyter_notebook,
         )
-        if asset_obj.id is not None:
-            print("...NotebookResult successfully created!")
-            return nb_entity_register.id, asset_obj.id
+        asset_id = cast(ID, asset_obj.id)
+        print("...NotebookResult successfully created!")
+        return nb_entity_register.id, asset_id
 
     print("...registration failed!")
     raise EntitySDKError()
@@ -100,7 +101,7 @@ def _register_result(
 
 def _update_result(
     client: Client,
-    entity_id: UUID,
+    entity_id: ID,
     notebook_file: Path,
     notebook_name: str,
     notebook_description: str,
@@ -109,36 +110,36 @@ def _update_result(
     nb_entity_found = client.get_entity(
         entity_id=entity_id, entity_type=models.AnalysisNotebookResult
     )
-    if nb_entity_found.id is not None:
-        print("Updating notebook entity...")
-        if (notebook_name != nb_entity_found.name) or (
-            notebook_description != nb_entity_found.description
-        ):
-            print("Updating name and description...")
-            client.update_entity(
-                entity_id=nb_entity_found.id,
-                entity_type=models.AnalysisNotebookResult,
-                attrs_or_entity={"name": notebook_name, "description": notebook_description},
-            )
-        assets = client.select_assets(
-            entity=nb_entity_found, selection={"label": types.AssetLabel.jupyter_notebook}
-        ).all()
-        for asset in assets:
-            print("Deleting existing asset...")
-            client.delete_asset(
-                entity_id=nb_entity_found.id,
-                entity_type=models.AnalysisNotebookResult,
-                asset_id=asset.id,
-            )
-        print("Uploding new asset...")
-        asset_obj = client.upload_file(
-            entity_id=nb_entity_found.id,
+
+    print("Updating notebook entity...")
+    if (notebook_name != nb_entity_found.name) or (
+        notebook_description != nb_entity_found.description
+    ):
+        print("Updating name and description...")
+        client.update_entity(
+            entity_id=entity_id,
             entity_type=models.AnalysisNotebookResult,
-            file_path=notebook_file,
-            file_name=path.split(notebook_file)[1],
-            file_content_type=types.ContentType.application_x_ipynb_json,
-            asset_label=types.AssetLabel.jupyter_notebook,
+            attrs_or_entity={"name": notebook_name, "description": notebook_description},
         )
+    assets = client.select_assets(
+        entity=nb_entity_found, selection={"label": types.AssetLabel.jupyter_notebook}
+    ).all()
+    for asset in assets:
+        print("Deleting existing asset...")
+        client.delete_asset(
+            entity_id=entity_id,
+            entity_type=models.AnalysisNotebookResult,
+            asset_id=asset.id,
+        )
+    print("Uploding new asset...")
+    asset_obj = client.upload_file(
+        entity_id=entity_id,
+        entity_type=models.AnalysisNotebookResult,
+        file_path=notebook_file,
+        file_name=path.split(notebook_file)[1],
+        file_content_type=types.ContentType.application_x_ipynb_json,
+        asset_label=types.AssetLabel.jupyter_notebook,
+    )
     print("...NotebookResult successfully updated!")
     return nb_entity_found.id, asset_obj.id
 

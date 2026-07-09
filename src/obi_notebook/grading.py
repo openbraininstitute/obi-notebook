@@ -267,7 +267,7 @@ class GradeResult:
     def _repr_html_(self) -> str:
         """Render a styled result box for display in a notebook cell."""
         if self.ok:
-            color, background, icon = "#1a7f37", "#e9f7ec", "✓"
+            color, background, icon = "#175cd3", "#eff8ff", "✓"
         elif self.status_code == 400:
             color, background, icon = "#9a6700", "#fff8e1", "✎"
         else:
@@ -275,7 +275,7 @@ class GradeResult:
         headline = html.escape(self._headline())
         return (
             f'<div style="border-left:4px solid {color};background:{background};'
-            "padding:10px 14px;border-radius:4px;font-family:sans-serif;"
+            "margin:12px 0;padding:10px 14px;border-radius:4px;font-family:sans-serif;"
             f'color:{color};font-size:1.1em;">{icon} {headline}</div>'
         )
 

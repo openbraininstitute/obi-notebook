@@ -8,9 +8,11 @@ from typing import cast
 
 import ipywidgets as widgets
 from entitysdk import Client, EntitySDKError, models, types
+from entitysdk.config import settings
 from entitysdk.types import ID
 from IPython.display import clear_output, display
 from obi_auth import get_user_info
+from obi_auth.typedef import DeploymentEnvironment
 
 
 def _find_potential_notebook_files() -> list[str]:
@@ -44,7 +46,11 @@ def _file_last_saved_str(fn: str) -> str:
 
 def _this_user(client: Client) -> str | None:
     """Get the authenticated user's "sub_id" for use with queries."""
-    user_info = get_user_info(client._token_manager.get_token())
+    environment = {
+        settings.staging_api_url: DeploymentEnvironment.staging,
+        settings.production_api_url: DeploymentEnvironment.production,
+    }[client.api_url]
+    user_info = get_user_info(client._token_manager.get_token(), environment)
     return user_info["sub"]
 
 

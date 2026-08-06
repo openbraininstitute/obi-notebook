@@ -59,7 +59,7 @@ def _try_to_find_matching_entity(client: Client, notebook_name: str, user_sub: s
     if user_sub is None:
         query = {"name": notebook_name, "authorized_public": False}
     else:
-        query = {"created_by__sub_id": user_sub, "name": notebook_name, "authorized_public": False}
+        query = {"created_by__id": user_sub, "name": notebook_name, "authorized_public": False}
     query_res = client.search_entity(entity_type=models.AnalysisNotebookResult, query=query)
     return query_res.all()
 
